@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="2"> <title>ESP32 WiFi Monitor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding: 20px; }
+        .container { max-width: 900px; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .rssi-good { color: green; font-weight: bold; }
+        .rssi-bad { color: red; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 class="mb-4 text-center">📡 ESP32 WiFi Scanner Live Feed</h2>
+    
+    <div class="alert alert-info text-center">
+        Auto-refreshing every 2 seconds...
+    </div>
+
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Time (Server)</th>
+                <th>SSID (Network Name)</th>
+                <th>MAC Address</th>
+                <th>RSSI (Signal)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scan in scans %}
+            <tr>
+                <td>{{ scan.server_time }}</td>
+                <td>{{ scan.ssid }}</td>
+                <td><code>{{ scan.mac }}</code></td>
+                <td>
+                    <span class="{{ 'rssi-good' if scan.rssi > -70 else 'rssi-bad' }}">
+                        {{ scan.rssi }} dBm
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>
