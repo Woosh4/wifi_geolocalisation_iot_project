@@ -25,6 +25,7 @@
         <thead class="table-dark">
             <tr>
                 <th>Time (Server)</th>
+                <th>Time (ESP32)</th>
                 <th>SSID (Network Name)</th>
                 <th>MAC Address</th>
                 <th>RSSI (Signal)</th>
@@ -34,6 +35,7 @@
             {% for scan in scans %}
             <tr>
                 <td>{{ scan.server_time }}</td>
+                <td>{{ scan.esp_time }}</td>
                 <td>{{ scan.ssid }}</td>
                 <td><code>{{ scan.mac }}</code></td>
                 <td>

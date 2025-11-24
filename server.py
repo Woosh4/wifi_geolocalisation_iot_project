@@ -73,10 +73,12 @@ async def receive_wifi_data(data: WifiScanData):
                 data.rssi
             ])
 
+        esp_time_formatted = datetime.fromtimestamp(data.timestamp).strftime('%H:%M:%S')
         # B. Add to In-Memory History (For Web Display)
         # We prepend (add to left) so the newest is at the top
         data_history.appendleft({
             "server_time": current_time,
+            "esp_time" : esp_time_formatted,
             "ssid": data.ssid_ap,
             "mac": data.mac_ap,
             "rssi": data.rssi

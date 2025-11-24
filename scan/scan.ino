@@ -17,7 +17,8 @@ uint32_t timestamp = (uint32_t)time(NULL);  // timestamp (4 bytes)
 
 const char* ssid = "iPhon de Alexcouille (2)";
 const char* password = "bahenfaitnon";
-const char* serverUrl = "http://192.168.1.25:5000/api/geoloc";
+// serverurl : IP windows, forwarded to wsl
+const char* serverUrl = "http://172.20.10.8:5000/api/geoloc";
 
 void setup() {
   Serial.begin(115200);         // pour debug
@@ -126,7 +127,7 @@ void sendViaHTTP(int index) {
     http.addHeader("Content-Type", "application/json");
 
     // Create JSON for the server
-    // Also send the scanned ssid for debug
+    // Also send the scanned ssid (not necessary but useful for debug)
     StaticJsonDocument<200> doc;
     doc["timestamp"] = timestamp;
     doc["mac_ap"] = WiFi.BSSIDstr(index);
