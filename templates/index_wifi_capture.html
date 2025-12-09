@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture WiFi & Géolocalisation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    </head>
+<body class="bg-light">
+
+<div class="container py-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>📍 Calibration WiFi Indoor</h1>
+        <a href="/" class="btn btn-outline-primary">🔄 Rafraîchir la liste</a>
+    </div>
+
+    {% if not pending %}
+    <div class="alert alert-secondary text-center py-5">
+        <h4>Aucun scan en attente</h4>
+        <p class="mb-0">1. Appuyez sur le bouton de l'ESP32.</p>
+        <p>2. Attendez la fin de l'envoi (LED éteinte).</p>
+        <p>3. Cliquez sur le bouton "Rafraîchir" ci-dessus.</p>
+    </div>
+    {% else %}
+    
+    <div class="row">
+        {% for scan in pending %}
+        <div class="col-md-8 offset-md-2 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>Reçu à <strong>{{ scan.time_str }}</strong></span>
+                    <span class="badge bg-light text-dark">{{ scan.count }} réseaux détectés</span>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">Où étiez-vous lors de cette mesure ?</p>
+                    
+                    <form action="/tag_scan" method="post">
+                        <input type="hidden" name="timestamp" value="{{ scan.ts }}">
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label">Latitude</label>
+                                <input type="number" step="any" name="lat" class="form-control" placeholder="48.8..." required>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Longitude</label>
+                                <input type="number" step="any" name="lon" class="form-control" placeholder="2.35..." required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Étage</label>
+                                <input type="number" name="floor" class="form-control" value="0" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 fw-bold">
+                            ✅ Valider et Sauvegarder
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="text-center mt-5 text-muted">
+        <small>Données stockées dans <code>database_wifi.json</code></small>
+    </div>
+</div>
+
+</body>
+</html>
