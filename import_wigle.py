@@ -5,16 +5,22 @@ import base64
 # === CONFIGURATION ===
 # Remplace par ta chaîne "Encoded for use" trouvée sur le site WiGLE
 # Attention: Ne mets pas "Basic " devant, juste la chaîne
-WIGLE_AUTH = "QUlEOWUxNjExNDRjZDA3MTkxZGJjNmU0NWRmNzgxZjY0OGE6ZmNjOWVlNDk0MjFhMTUwNzY0MjA0ZjU5Nzk2MTM0OWE" 
+WIGLE_AUTH = "QUlENDM2NDRhZmExN2MyYTYwYzBlNjIyYWNmNTk0OTY5YTU6Y2NmNDYwODRlMjc0N2E1OTVmMTc2ZjA0ZjMzYzI3MzQ" 
 
 # Définis ta zone géographique (Exemple: Une zone à Paris)
 # Utilise boundingbox.klokantech.com pour trouver tes valeurs
-LAT_MIN = 48.844
-LAT_MAX = 48.8479
-LON_MIN = 2.3524
-LON_MAX = 2.3642
+# PARIS :
+# LAT_MIN = 48.844
+# LAT_MAX = 48.8479
+# LON_MIN = 2.3524
+# LON_MAX = 2.3642
+# YVELINES :
+LAT_MIN = 48.8097
+LAT_MAX = 48.8175
+LON_MIN = 1.8985
+LON_MAX = 1.9222
 
-OUTPUT_FILE = "local_wifi_db.csv"
+OUTPUT_FILE = "local_wifi_db_wigle.csv"
 
 def fetch_wigle_data():
     url = "https://api.wigle.net/api/v2/network/search"
