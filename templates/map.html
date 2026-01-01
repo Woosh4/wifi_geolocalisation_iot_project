@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Tracking ESP32 - Historique</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        #map { height: 100vh; width: 100vw; }
+        
+        /* Boite d'info flottante */
+        #info-box {
+            position: absolute; bottom: 20px; left: 20px; z-index: 1000;
+            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            max-width: 300px;
+            backdrop-filter: blur(5px);
+        }
+        .status-dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .red { background-color: #ff4444; box-shadow: 0 0 8px #ff4444; }
+        .green { background-color: #00C851; box-shadow: 0 0 8px #00C851; }
+        .orange { background-color: #ffbb33; }
+
+        h4 { margin: 0 0 10px 0; color: #333; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9em; }
+        .label { color: #666; font-weight: 600; }
+        .value { color: #000; font-family: monospace; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+    
+    <div id="info-box">
+        <h4>📡 ESP32 Live Tracker</h4>
+        <div style="margin-bottom: 10px;">
+            <span id="status-dot" class="status-dot red"></span> 
+            <span id="status-text" style="font-weight: bold;">Déconnecté</span>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #ddd;">
+        
+        <div class="data-row"><span class="label">Étage :</span> <span id="floor-val" class="value">--</span></div>
+        <div class="data-row"><span class="label">Latitude :</span> <span id="lat-val" class="value">--</span></div>
+        <div class="data-row"><span class="label">Longitude :</span> <span id="lon-val" class="value">--</span></div>
+        <div class="data-row"><span class="label">Précision :</span> <span id="acc-val" class="value">--</span> m</div>
+        
+        <div style="font-size: 0.75em; color: #999; margin-top:8px; text-align: center;">
+            Dernière maj: <span id="last-update">--</span>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURATION CARTE ---
+        var map = L.map('map').setView([48.8566, 2.3522], 18); // Paris par défaut
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 21,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // --- 2. ICÔNES ---
+        var espIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        // --- 3. VARIABLES GLOBALES ---
+        var currentMarker = null;
+        var accuracyCircle = null;
+        var pathPolyline = L.polyline([], {color: 'blue', weight: 4, opacity: 0.6, dashArray: '10, 10'}).addTo(map);
+        var firstFix = false; // Pour centrer la carte au premier point reçu
+
+        // --- 4. BOUCLE DE MISE À JOUR ---
+        async function fetchPosition() {
+            try {
+                let response = await fetch('/api/get_position');
+                let json = await response.json();
+
+                let statusText = document.getElementById('status-text');
+                let statusDot = document.getElementById('status-dot');
+
+                if (json.status === "tracking") {
+                    // --- DONNÉES REÇUES ---
+                    let d = json.current;
+                    let history = json.history; // Récupération de l'historique
+
+                    // MAJ Interface
+                    statusText.innerText = "En ligne";
+                    statusDot.className = "status-dot green";
+                    document.getElementById('floor-val').innerText = d.floor;
+                    document.getElementById('lat-val').innerText = d.lat.toFixed(5);
+                    document.getElementById('lon-val').innerText = d.lon.toFixed(5);
+                    document.getElementById('acc-val').innerText = Math.round(d.accuracy);
+                    
+                    let now = new Date();
+                    document.getElementById('last-update').innerText = now.toLocaleTimeString();
+
+                    // MAJ Marqueur Actuel
+                    if (!currentMarker) {
+                        currentMarker = L.marker([d.lat, d.lon], {icon: espIcon}).addTo(map);
+                        accuracyCircle = L.circle([d.lat, d.lon], {radius: d.accuracy, color: 'red', fillOpacity: 0.1}).addTo(map);
+                    } else {
+                        currentMarker.setLatLng([d.lat, d.lon]);
+                        accuracyCircle.setLatLng([d.lat, d.lon]);
+                        accuracyCircle.setRadius(d.accuracy);
+                    }
+
+                    // MAJ Historique (Trace bleue)
+                    if (history && history.length > 0) {
+                        // On extrait juste lat/lon de l'historique
+                        let pathPoints = history.map(pt => [pt.lat, pt.lon]);
+                        pathPolyline.setLatLngs(pathPoints);
+                    }
+
+                    // Centrage auto au premier point valide
+                    if (!firstFix && d.lat !== 0) {
+                        map.setView([d.lat, d.lon], 19);
+                        firstFix = true;
+                    }
+
+                } else if (json.status === "offline") {
+                    statusText.innerText = "Hors ligne (>10s)";
+                    statusDot.className = "status-dot red";
+                } else {
+                    statusText.innerText = "Calibrage / Attente...";
+                    statusDot.className = "status-dot orange";
+                }
+
+            } catch (error) {
+                console.error("Erreur connexion serveur:", error);
+            }
+        }
+
+        // Rafraichissement toutes les 1.5 secondes
+        setInterval(fetchPosition, 1500);
+
+    </script>
+</body>
+</html>
