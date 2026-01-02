@@ -8,3 +8,5 @@ preuve
 wifi_data.csv
 __pycache__
 index.html
+liste_wifi_203.xlsx
+scan_wifi_esp32.xlsx
