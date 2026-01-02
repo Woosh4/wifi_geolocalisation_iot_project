@@ -6,3 +6,5 @@ note.txt
 *:Zone.Identifier
 preuve
 wifi_data.csv
+__pycache__
+index.html
