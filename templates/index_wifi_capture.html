@@ -12,16 +12,16 @@
 <div class="container py-5">
     
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>📍 Calibration WiFi Indoor</h1>
-        <a href="/" class="btn btn-outline-primary">🔄 Rafraîchir la liste</a>
+        <h1>Calibration WiFi</h1>
+        <a href="/" class="btn btn-outline-primary">Rafraîchir la liste</a>
     </div>
 
     {% if not pending %}
     <div class="alert alert-secondary text-center py-5">
         <h4>Aucun scan en attente</h4>
-        <p class="mb-0">1. Appuyez sur le bouton de l'ESP32.</p>
-        <p>2. Attendez la fin de l'envoi (LED éteinte).</p>
-        <p>3. Cliquez sur le bouton "Rafraîchir" ci-dessus.</p>
+        <p class="mb-0">1. Appuyer sur le bouton de l'ESP32.</p>
+        <p>2. Attendre la fin de l'envoi (LED éteinte).</p>
+        <p>3. Cliquer sur le bouton "Rafraîchir"</p>
     </div>
     {% else %}
     
@@ -34,7 +34,7 @@
                     <span class="badge bg-light text-dark">{{ scan.count }} réseaux détectés</span>
                 </div>
                 <div class="card-body">
-                    <p class="card-text">Où étiez-vous lors de cette mesure ?</p>
+                    <p class="card-text">Quelle est la position de cette mesure ?</p>
                     
                     <form action="/tag_scan" method="post">
                         <input type="hidden" name="timestamp" value="{{ scan.ts }}">
@@ -55,7 +55,7 @@
                         </div>
 
                         <button type="submit" class="btn btn-success w-100 fw-bold">
-                            ✅ Valider et Sauvegarder
+                            Valider et Sauvegarder
                         </button>
                     </form>
                 </div>

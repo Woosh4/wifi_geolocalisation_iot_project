@@ -35,6 +35,8 @@ app = FastAPI(title="Traqueur de position ESP32")
 templates = Jinja2Templates(directory="templates")
 
 # Base de données des empreintes (chargée au démarrage)
+#C'est une liste de dictionnaires : chaque élément contient la position géographique,
+#et un dictionnaire du type mac:rssi
 fingerprint_db = []
 
 # Buffer pour le mode WiFi (car l'ESP32 envoie les réseaux un par un)
