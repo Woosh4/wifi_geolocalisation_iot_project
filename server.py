@@ -7,6 +7,8 @@ import csv
 import os
 from datetime import datetime
 from collections import deque # Efficient list for limited history
+import json
+import math
 
 # === CONFIGURATION ===
 HOST_IP = "172.20.10.8"
@@ -24,7 +26,9 @@ class WifiScanData(BaseModel):
     mac_ap: str
     rssi: int
     ssid_ap: str
+############################################################
 
+############################################################
 # === APP SETUP ===
 app = FastAPI(title="ESP32 WiFi Tracker")
 templates = Jinja2Templates(directory="templates") # Tell FastAPI where HTML is

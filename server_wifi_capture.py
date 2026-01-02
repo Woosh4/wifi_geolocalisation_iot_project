@@ -7,16 +7,20 @@ import json
 import os
 from datetime import datetime
 
+#Récupère tous les wifis à une position pour la base de données,
+# en incluant ceux qui proviennent d'un partage de connexion
+# (supprimés plus tard)
+
 # === CONFIGURATION ===
 HOST_IP = "0.0.0.0"
-PORT = 5000
-DB_FILE = "database_wifi.json" # On garde le même fichier de sauvegarde
+PORT = 8004 #port associé pour le serveur ovh / le même pour en local
+DB_FILE = "database_test_yvelines.json" # fichier pour sauvegarder la database
 
 app = FastAPI()
 # Dossier où se trouvent les fichiers HTML
 templates = Jinja2Templates(directory="templates")
 
-# === STOCKAGE EN MÉMOIRE (File d'attente) ===
+# === STOCKAGE EN MÉMOIRE (File d'attente des scans) ===
 pending_scans = {}
 
 # === MODÈLES ===
@@ -27,6 +31,7 @@ class WifiData(BaseModel):
     rssi: int
 
 # === FONCTIONS ===
+# Pour sauvegarder les données dans la database
 def save_to_json_db(data_list):
     current_db = []
     if os.path.exists(DB_FILE):
@@ -42,10 +47,10 @@ def save_to_json_db(data_list):
         json.dump(current_db, f, indent=4)
 
 # === ROUTES ===
-
+#page principale
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    # Tri des timestamps (le plus récent en haut)
+    # Tri des timestamps (le plus récent en haut, si plusieurs scans)
     sorted_timestamps = sorted(pending_scans.keys(), reverse=True)
     
     scans_display = []
@@ -54,22 +59,23 @@ async def home(request: Request):
         count = len(pending_scans[ts])
         scans_display.append({"ts": ts, "time_str": time_str, "count": count})
 
-    # MODIFICATION ICI : On appelle le NOUVEAU fichier HTML
     return templates.TemplateResponse("index_wifi_capture.html", {
         "request": request, 
         "pending": scans_display
     })
 
+# pour reçevoir les données de l'esp32
 @app.post("/api/raw_scan")
 async def receive_raw(data: WifiData):
     ts = data.timestamp
-    if ts not in pending_scans:
+    if ts not in pending_scans: #scan différent
         pending_scans[ts] = []
     
     pending_scans[ts].append(data.dict())
-    print(f"Reçu: {data.ssid} ({data.rssi}) - Attente validation web")
+    print(f"Reçu: {data.ssid} ({data.rssi}) - Attente des coordonnées sur le web")
     return {"status": "stored_temporarily"}
 
+# Pour sauvegarder un scan une fois les coordonnées renseignées
 @app.post("/tag_scan")
 async def tag_scan(
     timestamp: int = Form(...), 
@@ -96,5 +102,6 @@ async def tag_scan(
     # Redirection vers l'accueil après sauvegarde
     return RedirectResponse(url="/", status_code=303)
 
+#Pour pouvoir lancer le serveur simplement juste avec python server_wifi_capture.py
 if __name__ == "__main__":
     uvicorn.run("server_wifi_capture:app", host=HOST_IP, port=PORT, reload=True)

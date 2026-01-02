@@ -13,5 +13,7 @@ L'adresse du serveur c'est "vps-98cd652a.vps.ovh.net".
 
 Ensuite pour nos bases de données il va falloir qu'on attribue un port chacun, le prof m'a donc demandé de faire un Excel où chacun a son port, voici le lien : https://docs.google.com/spreadsheets/d/11FtHxj9LOwMR26jeZXVT3L9e34PehOgRqrR17k89rEw/edit?usp=sharing 
 
+DATABASE A RAFFINER : ENLEVER PARTAGES DE CONNEXIONS
+ssh alexis@vps-98cd652a.vps.ovh.net
 pour compte rendu:
 probleme wigle → scan manuel

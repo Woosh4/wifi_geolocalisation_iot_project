@@ -7,7 +7,7 @@
 // envoi en lora / http wifi
 #define MODE_LORA 1
 #define MODE_HTTP 2
-#define TRANSMISSION_MODE MODE_HTTP
+#define TRANSMISSION_MODE MODE_HTTP //MODE_HTTP; MODE_LORA
 
 // === Configuration des broches du port série 2
 #define LORA_TX 17  // TX2 ESP32 → RX module LoRaWAN
@@ -17,11 +17,13 @@ uint32_t timestamp = (uint32_t)time(NULL);  // timestamp (4 bytes)
 
 const char* ssid = "iPhon de Alexcouille (2)";
 const char* password = "bahenfaitnon";
-// serverurl : IP windows, forwarded to wsl
-const char* serverUrl = "http://172.20.10.8:5000/api/geoloc";
+// serverurl : IP locale
+const char* serverUrl = "http://172.20.10.8:8004/api/raw_scan";
+// IP distante
+// const char* serverUrl = "http://vps-98cd652a.vps.ovh.net:8004/api/raw_scan";
 
 void setup() {
-  Serial.begin(115200);         // pour debug
+  Serial.begin(115200); // pour debug
   if (TRANSMISSION_MODE == MODE_LORA) {
     Serial2.begin(9600, SERIAL_8N1, LORA_RX, LORA_TX);
   }
@@ -56,9 +58,9 @@ void setup() {
 
 void setup_wifi() {
   delay(10);
-  // We start by connecting to a WiFi network
+  // Connexion au wifi
   Serial.println();
-  Serial.print("Connecting to ");
+  Serial.print("Connexion à : ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
@@ -66,7 +68,7 @@ void setup_wifi() {
     Serial.print(".");
   }
   Serial.println("");
-  Serial.print("WiFi connected - ESP IP address: ");
+  Serial.print("WiFi connecté, IP de l'ESP : ");
   Serial.println(WiFi.localIP());
 }
 
@@ -79,7 +81,7 @@ String toHex(uint8_t* buf, int len) {
   }
   return out;
 }
-//to print time in a nice way HH:MM:SS
+//pour afficher l'heure de manière jolie HH:MM:SS
 String getTimeString() {
   time_t now = time(nullptr);
   struct tm *tm_info = localtime(&now);
@@ -90,22 +92,22 @@ String getTimeString() {
   return String(buffer);
 }
 
-// to send time, mac address and rssi on ttn : 4+6+1 bytes, takes the wifi id as input
+// pour envoyer l'heure, l'adresse mac et le rssi sur ttn : 4+6+1 bytes, prends l'index du wifi comme entrée
 // a besoin que time soit mis à jour avant
 void sendViaLoRa(int index) {
   uint8_t msg[11];
 
-  // Écrire timestamp big-endian
+  // écrire timestamp (4 bytes)
   msg[0] = (timestamp >> 24) & 0xFF;
   msg[1] = (timestamp >> 16) & 0xFF;
   msg[2] = (timestamp >> 8)  & 0xFF;
   msg[3] = (timestamp >> 0)  & 0xFF;
 
-  // Copy MAC (6 bytes)
+  // MAC (6 bytes)
   uint8_t* mac = WiFi.BSSID(index);
   memcpy(&msg[4], mac, 6);
 
-  // RSSI : 1 byte signed
+  // RSSI : 1 byte signé
   msg[10] = (int8_t)WiFi.RSSI(index);
 
   // Convertir en hex
@@ -119,39 +121,39 @@ void sendViaLoRa(int index) {
   Serial2.println("\"");
 }
 
-// Function to send via HTTP
+// Fonction pour envoyer en http
 void sendViaHTTP(int index) {
   if(WiFi.status() == WL_CONNECTED){
     HTTPClient http;
     http.begin(serverUrl);
     http.addHeader("Content-Type", "application/json");
 
-    // Create JSON for the server
-    // Also send the scanned ssid (not necessary but useful for debug)
+    // Crée un json pour le serveur
+    // aussi envoi du ssid, pas nécessaire mais pratique pour du débug
     StaticJsonDocument<200> doc;
     doc["timestamp"] = timestamp;
-    doc["mac_ap"] = WiFi.BSSIDstr(index);
+    doc["mac"] = WiFi.BSSIDstr(index);
     doc["rssi"] = WiFi.RSSI(index);
-    doc["ssid_ap"] = WiFi.SSID(index); 
+    doc["ssid"] = WiFi.SSID(index);
 
     String requestBody;
     serializeJson(doc, requestBody);
 
-    Serial.println("[HTTP] sending : " + requestBody);
+    Serial.println("[HTTP] envoi : " + requestBody);
     int httpResponseCode = http.POST(requestBody);
 
     if(httpResponseCode > 0){
       String response = http.getString();
-      Serial.println("[HTTP] response code: " + String(httpResponseCode));
-      Serial.println("[HTTP] server response: " + response);
+      Serial.println("[HTTP] code de réponse http: " + String(httpResponseCode));
+      Serial.println("[HTTP] réponse serveur: " + response);
     } else {
-      Serial.print("[HTTP] send error: ");
+      Serial.print("[HTTP] erreur, code http: ");
       Serial.println(httpResponseCode);
     }
     http.end();
   } else {
-    Serial.println("[HTTP] error : wifi disconnected");
-    // try to reconnect
+    Serial.println("[HTTP] erreur pas de connexion wifi");
+    // reconnexion
     setup_wifi();
   }
 }
@@ -160,7 +162,7 @@ void loop() {
   Serial.println("Scan WiFi...");
   int n = WiFi.scanNetworks();
   if (n == 0) {
-    Serial.println("No networks found.");
+    Serial.println("Aucun réseau trouvé");
   } else {
     timestamp = (uint32_t)time(NULL);  // timestamp (4 bytes)
     String timeStr = getTimeString();
@@ -179,13 +181,13 @@ void loop() {
     }
     Serial.println("=========================");
 
-    // reconnect wifi in case the scan cut off the connection
+    // reconnexion au wifi au cas où il se fait déconnecter
     if (TRANSMISSION_MODE == MODE_HTTP && WiFi.status() != WL_CONNECTED) {
         setup_wifi();
     }
 
     for(int i=0; i<n; i++){
-      if(!(WiFi.BSSID(i)[0] & 0x02)){
+      if(!(WiFi.BSSID(i)[0] & 0x02)){ //bit "locally administered" pour filtrer les partages de connexions
 
         if (TRANSMISSION_MODE == MODE_LORA) {
           sendViaLoRa(i);
@@ -194,11 +196,11 @@ void loop() {
             String resp = Serial2.readStringUntil('\n');
             resp.trim();
             if (resp.length() > 0) {
-              Serial.println("response LoRa-E5: " + resp);
+              Serial.println("réponse Lora: " + resp);
 
-              // vérif si pas connecté
+              // vérif si pas connecté pour reconnexion
               if(resp.equals("+MSGHEX: Please join network first")){
-                Serial.println("Not connected. reconnecting..");
+                Serial.println("Pas connecté, reconnexion..");
                 Serial2.println("AT+JOIN");
                 i--; // pour ré-envoyer la donnée
               }
@@ -211,7 +213,7 @@ void loop() {
         else{ // Mode HTTP
           sendViaHTTP(i);
           Serial.println("Next wifi (http)");
-          //short delay
+          //petit delai
           delay(100);
         }
       }
@@ -219,6 +221,12 @@ void loop() {
   }
 
   WiFi.scanDelete();
-  Serial.println("All wifis sent, next scan in 30 sec");
-  delay(30000); // attendre 30s avant le prochain scan
+  
+  if (TRANSMISSION_MODE == MODE_HTTP) {
+      Serial.println("Scan envoyé. Pause de 3s pour le tracking...");
+      delay(3000); // 3 secondes de pause seulement pour avoir un suivi fluide (entre chaque scan)
+  } else {
+      Serial.println("Scan LoRa envoyé. Pause 30s ...");
+      delay(30000); // On garde 30s si on est en Lora pour libérer 99% du temps
+  }
 }
