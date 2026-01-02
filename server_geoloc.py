@@ -16,7 +16,7 @@ from collections import defaultdict, deque
 HOST_IP = "0.0.0.0"      # Écoute sur toutes les interfaces réseau
 PORT = 8004              # Port du serveur (8004 résservé pour le serveur ovh)
 DB_FILE = "database_test_yvelines.json"
-# DB_FILE = "database_wifi.json"
+# DB_FILE = "database_wifi_clean.json"
 
 # --- Paramètres de l'Algorithme ---
 K_NEIGHBORS = 5          # Nombre de voisins à considérer (k-NN)
