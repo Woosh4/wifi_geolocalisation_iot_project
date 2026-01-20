@@ -8,6 +8,7 @@ import os
 import math
 import time
 from collections import defaultdict, deque
+import base64 #decode lora
 
 # ==========================================
 # 1. CONFIGURATION DU SERVEUR
@@ -266,6 +267,67 @@ async def get_position_api():
         }
     else:
         return {"status": "calibrating"} # Pas assez de données ou pas de correspondance
+
+# --- Route Réception (Mode LoRaWAN - RAW Decoding) ---
+@app.post("/api/lora_uplink")
+async def receive_lora_uplink(request: Request):
+    """
+    Reçoit le webhook brut de TTN.
+    Décodage du payload Base64 -> Hex -> Parsing (MAC + RSSI)
+    """
+    global current_wifi_buffer, last_buffer_update
+    
+    if CURRENT_MODE != MODE_LORA:
+        # On log mais on ne crash pas, au cas où
+        print("Erreur : Reçu LoRa mais le serveur est en mode WIFI")
+        return {"status": "ignored"}
+    
+    try:
+        # 1. Récupération du JSON TTN
+        ttn_data = await request.json()
+        
+        # 2. Extraction du payload brut (encodé en Base64 par TTN)
+        # Le champ s'appelle 'frm_payload' dans 'uplink_message'
+        if 'uplink_message' not in ttn_data or 'frm_payload' not in ttn_data['uplink_message']:
+            print("Erreur: Pas de payload dans le message TTN")
+            return {"status": "error", "reason": "no payload"}
+
+        b64_payload = ttn_data['uplink_message']['frm_payload']
+        
+        # 3. Décodage Base64 -> Bytes
+        raw_bytes = base64.b64decode(b64_payload)
+        
+        # 4. Parsing des blocs de 7 octets (6 MAC + 1 RSSI)
+        # Ton code Arduino envoie: [MAC1][RSSI1][MAC2][RSSI2]...
+        networks_found = {}
+        
+        total_len = len(raw_bytes)
+        # On boucle par pas de 7
+        for i in range(0, total_len, 7):            
+            # A. Extraction MAC (6 octets)
+            mac_bytes = raw_bytes[i : i+6]
+            # Formatage "AA:BB:CC:DD:EE:FF"
+            mac_str = ":".join("{:02X}".format(b) for b in mac_bytes)
+            
+            # B. Extraction RSSI (1 octet signé)
+            rssi_byte = raw_bytes[i+6]
+            # Conversion unsigned (0-255) vers signed (-128 à 127)
+            rssi = rssi_byte if rssi_byte < 128 else rssi_byte - 256
+            
+            networks_found[mac_str] = rssi
+            
+        print(f"Reçu LoRa: {len(networks_found)} réseaux décodés.")
+        
+        # 5. Mise à jour du buffer global pour le calcul de position
+        # En LoRa, on reçoit tout d'un coup, donc on remplace le buffer direct
+        current_wifi_buffer = networks_found
+        last_buffer_update = time.time()
+        
+        return {"status": "success", "count": len(networks_found)}
+
+    except Exception as e:
+        print(f"Erreur décodage LoRa: {e}")
+        return {"status": "error", "details": str(e)}
 
 if __name__ == "__main__":
     uvicorn.run("server_geoloc:app", host=HOST_IP, port=PORT, reload=True)
