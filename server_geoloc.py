@@ -16,8 +16,8 @@ import base64 #decode lora
 
 HOST_IP = "0.0.0.0"      # Écoute sur toutes les interfaces réseau
 PORT = 8004              # Port du serveur (8004 résservé pour le serveur ovh)
-DB_FILE = "database_test_yvelines.json"
-# DB_FILE = "database_wifi_clean.json"
+# DB_FILE = "database_test_yvelines.json"
+DB_FILE = "database_wifi_clean.json"
 
 # --- Paramètres de l'Algorithme ---
 K_NEIGHBORS = 5          # Nombre de voisins à considérer (k-NN)
@@ -26,7 +26,7 @@ HISTORY_SIZE = 100       # Nombre de positions passées à garder en mémoire
 # --- Mode de Communication ---
 MODE_WIFI = "WIFI"
 MODE_LORA = "LORA"
-CURRENT_MODE = MODE_WIFI
+CURRENT_MODE = MODE_LORA
 
 # ==========================================
 # 2. INITIALISATION & MÉMOIRE
