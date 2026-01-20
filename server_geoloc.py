@@ -9,6 +9,15 @@ import math
 import time
 from collections import defaultdict, deque
 import base64 #decode lora
+import logging
+
+# Configuration logging : equivalent à print
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
 # ==========================================
 # 1. CONFIGURATION DU SERVEUR
@@ -67,7 +76,7 @@ def load_database():
     """
     global fingerprint_db
     if not os.path.exists(DB_FILE):
-        print(f"Erreur : Fichier {DB_FILE} introuvable.")
+        logger.info(f"Erreur : Fichier {DB_FILE} introuvable.")
         return
 
     try:
@@ -87,10 +96,10 @@ def load_database():
             grouped[ts]['aps'][entry['mac']] = entry['rssi']
 
         fingerprint_db = list(grouped.values())
-        print(f"Base de données chargée : {len(fingerprint_db)} points de référence.")
+        logger.info(f"Base de données chargée : {len(fingerprint_db)} points de référence.")
         
     except Exception as e:
-        print(f"Erreur lors du chargement de la BDD : {e}")
+        logger.info(f"Erreur lors du chargement de la BDD : {e}")
 
 #Calcul de la position estimée
 def algorithm_wknn(live_aps):
@@ -199,7 +208,7 @@ def algorithm_wknn(live_aps):
 @app.on_event("startup")
 async def start_app():
     load_database()
-    print(f"Serveur démarré en mode : {CURRENT_MODE}")
+    logger.info(f"Serveur démarré en mode : {CURRENT_MODE}")
 
 @app.get("/", response_class=HTMLResponse)
 async def get_map_page(request: Request):
@@ -226,17 +235,6 @@ async def receive_wifi_scan(data: WifiScanData):
     
     return {"status": "buffered"}
 
-# Réception (Mode LoRaWAN) des données avec le webhook ttn (pas implémenté)
-@app.post("/api/lora_uplink")
-async def receive_lora_uplink(request: Request):
-    """
-    Récupère les données avec le webhook de The Things Network
-    """
-    if CURRENT_MODE != MODE_LORA:
-        raise HTTPException(status_code=400, detail="Server in WiFi mode")
-    
-    return {"status": "received"}
-
 # Calcul et affichage de la position et de l'historique
 @app.get("/api/get_position")
 async def get_position_api():
@@ -248,8 +246,12 @@ async def get_position_api():
     Renvoie le statut, position, erreur, historique au navigateur
     """
     # Timeout : Si pas de données depuis 10s, on est hors ligne (mode HTTP principalement)
-    if time.time() - last_buffer_update > 10.0:
-        return {"status": "offline"}
+    if (CURRENT_MODE == MODE_WIFI):
+        if time.time() - last_buffer_update > 10.0:
+            return {"status": "offline"}
+    else: #lora
+        if time.time() - last_buffer_update > 35.0:
+            return {"status": "offline"}
 
     # Calcul de la position
     estimated_pos = algorithm_wknn(current_wifi_buffer)
@@ -279,7 +281,7 @@ async def receive_lora_uplink(request: Request):
     
     if CURRENT_MODE != MODE_LORA:
         # On log mais on ne crash pas, au cas où
-        print("Erreur : Reçu LoRa mais le serveur est en mode WIFI")
+        logger.info("Erreur : Reçu LoRa mais le serveur est en mode WIFI")
         return {"status": "ignored"}
     
     try:
@@ -289,7 +291,7 @@ async def receive_lora_uplink(request: Request):
         # 2. Extraction du payload brut (encodé en Base64 par TTN)
         # Le champ s'appelle 'frm_payload' dans 'uplink_message'
         if 'uplink_message' not in ttn_data or 'frm_payload' not in ttn_data['uplink_message']:
-            print("Erreur: Pas de payload dans le message TTN")
+            logger.info("Erreur: Pas de payload dans le message TTN")
             return {"status": "error", "reason": "no payload"}
 
         b64_payload = ttn_data['uplink_message']['frm_payload']
@@ -316,7 +318,7 @@ async def receive_lora_uplink(request: Request):
             
             networks_found[mac_str] = rssi
             
-        print(f"Reçu LoRa: {len(networks_found)} réseaux décodés.")
+        logger.info(f"Reçu LoRa: {len(networks_found)} réseaux décodés.")
         
         # 5. Mise à jour du buffer global pour le calcul de position
         # En LoRa, on reçoit tout d'un coup, donc on remplace le buffer direct
@@ -326,7 +328,7 @@ async def receive_lora_uplink(request: Request):
         return {"status": "success", "count": len(networks_found)}
 
     except Exception as e:
-        print(f"Erreur décodage LoRa: {e}")
+        logger.info(f"Erreur décodage LoRa: {e}")
         return {"status": "error", "details": str(e)}
 
 if __name__ == "__main__":
