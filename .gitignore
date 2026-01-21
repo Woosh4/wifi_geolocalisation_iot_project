@@ -11,3 +11,4 @@ index.html
 liste_wifi_203.xlsx
 scan_wifi_esp32.xlsx
 clean_db.py
+json_to_sqlite.py

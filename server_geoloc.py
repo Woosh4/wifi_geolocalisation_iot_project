@@ -9,7 +9,9 @@ import math
 import time
 from collections import defaultdict, deque
 import base64 #decode lora
-import logging
+import logging #debug
+import sqlite3 #database sql
+
 
 # Configuration logging : equivalent à print
 logging.basicConfig(
@@ -26,7 +28,12 @@ logger = logging.getLogger(__name__)
 HOST_IP = "0.0.0.0"      # Écoute sur toutes les interfaces réseau
 PORT = 8004              # Port du serveur (8004 résservé pour le serveur ovh)
 # DB_FILE = "database_test_yvelines.json"
-DB_FILE = "database_wifi_clean.json"
+# DB_FILE = "database_wifi_clean.json"
+DB_FILE = "database_wifi.db"
+MODE_JSON = "JSON"
+MODE_SQL = "SQL"
+MODE_DB = MODE_SQL
+
 
 # --- Paramètres de l'Algorithme ---
 K_NEIGHBORS = 5          # Nombre de voisins à considérer (k-NN)
@@ -100,6 +107,50 @@ def load_database():
         
     except Exception as e:
         logger.info(f"Erreur lors du chargement de la BDD : {e}")
+
+def load_database_sql():
+    """
+    Charge les données depuis SQLite et les structure pour l'algorithme WKNN.
+    """
+    global fingerprint_db
+    
+    if not os.path.exists(DB_FILE):
+        print(f"Erreur : Base de données SQLite {DB_FILE} introuvable.")
+        return
+
+    try:
+        # Connexion SQL
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        
+        # On récupère tout. 
+        cursor.execute("SELECT timestamp, mac, rssi, latitude, longitude, floor FROM fingerprints")
+        rows = cursor.fetchall()
+        
+        conn.close()
+
+        # Regroupement des données (Reconstruction de la structure pour l'algo)
+        grouped = defaultdict(lambda: {'lat': 0, 'lon': 0, 'floor': 0, 'aps': {}})
+        
+        for row in rows:
+            # row est un tuple : (0:ts, 1:mac, 2:rssi, 3:lat, 4:lon, 5:floor)
+            ts = row[0]
+            mac = row[1]
+            rssi = row[2]
+            
+            #remplissage infos de positions (écrasé à chaque fois)
+            grouped[ts]['lat'] = row[3]
+            grouped[ts]['lon'] = row[4]
+            grouped[ts]['floor'] = row[5]
+            
+            # Ajout du signal WiFi
+            grouped[ts]['aps'][mac] = rssi
+
+        fingerprint_db = list(grouped.values())
+        print(f"Base SQLite chargée : {len(fingerprint_db)} empreintes de référence.")
+        
+    except Exception as e:
+        print(f"Erreur SQL lors du chargement : {e}")
 
 #Calcul de la position estimée
 def algorithm_wknn(live_aps):
@@ -207,7 +258,10 @@ def algorithm_wknn(live_aps):
 
 @app.on_event("startup")
 async def start_app():
-    load_database()
+    if(MODE_DB == MODE_JSON):
+        load_database()
+    else:
+        load_database_sql()
     logger.info(f"Serveur démarré en mode : {CURRENT_MODE}")
 
 @app.get("/", response_class=HTMLResponse)
